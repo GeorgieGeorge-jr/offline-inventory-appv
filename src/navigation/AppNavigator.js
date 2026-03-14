@@ -11,6 +11,7 @@ import StockMovementScreen from '../screens/StockMovementScreen';
 import InventoryListScreen from '../screens/InventoryListScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ProductDetailsScreen from '../screens/ProductDetailsScreen';
+import StaffSalesScreen from '../screens/StaffSalesScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -44,41 +45,47 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { isAuthenticated } = useSelector(state => state.auth);
+  const { isAuthenticated, user } = useSelector(state => state.auth);
 
   return (
     <Stack.Navigator>
       {!isAuthenticated ? (
-        <Stack.Screen 
-          name="Login" 
+        <Stack.Screen
+          name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
+      ) : user?.role === 'staff' ? (
+        <Stack.Screen
+          name="StaffSales"
+          component={StaffSalesScreen}
+          options={{ title: 'Sales Terminal' }}
+        />
       ) : (
         <>
-          <Stack.Screen 
-            name="Main" 
+          <Stack.Screen
+            name="Main"
             component={MainTabs}
             options={{ headerShown: false }}
           />
-          <Stack.Screen 
-            name="AddProduct" 
+          <Stack.Screen
+            name="AddProduct"
             component={AddProductScreen}
             options={{ title: 'Add Product' }}
           />
-          <Stack.Screen 
-            name="ProductDetails" 
+          <Stack.Screen
+            name="ProductDetails"
             component={ProductDetailsScreen}
             options={{ title: 'Product Details' }}
           />
-          <Stack.Screen 
-            name="StockIn" 
+          <Stack.Screen
+            name="StockIn"
             component={StockMovementScreen}
             initialParams={{ type: 'IN' }}
             options={{ title: 'Stock In' }}
           />
-          <Stack.Screen 
-            name="StockOut" 
+          <Stack.Screen
+            name="StockOut"
             component={StockMovementScreen}
             initialParams={{ type: 'OUT' }}
             options={{ title: 'Stock Out' }}

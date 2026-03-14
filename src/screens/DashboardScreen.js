@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 export default function DashboardScreen({ navigation }) {
   const dispatch = useDispatch();
   const { products, alerts, loading } = useSelector(state => state.inventory);
-  const { sync } = useSelector(state => state);
+  const sync = useSelector(state => state.sync);
   const { isOnline, isInternetReachable } = useNetwork();
 
   useEffect(() => {
