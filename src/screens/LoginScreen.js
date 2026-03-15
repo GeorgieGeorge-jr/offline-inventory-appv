@@ -4,6 +4,12 @@ import { TextInput, Button, Surface, Title } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import { login } from '../store/authSlice';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+// import { Platform } from 'react-native';
+
+// const API_BASE_URL =
+//   Platform.OS === 'ios'
+//   // ? 'http://192.168.1.5:5001'
+//     : 'http://192.168.1.5:5001';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -18,7 +24,7 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://172.20.10.2:5001/auth/login', {
+      const response = await fetch('http://10.106.1.37:5001/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

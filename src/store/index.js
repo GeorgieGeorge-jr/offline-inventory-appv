@@ -10,7 +10,7 @@ import syncReducer from './syncSlice';
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['auth']
+  whitelist: [],
 };
 
 const rootReducer = combineReducers({
