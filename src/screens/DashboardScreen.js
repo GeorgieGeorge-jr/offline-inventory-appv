@@ -1,302 +1,589 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Text } from 'react-native';
-import { Card, Title, Paragraph, Button, Badge, FAB, Avatar } from 'react-native-paper';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts, getLowStockAlerts } from '../store/inventorySlice';
-import { useNetwork } from '../services/NetworkProvider';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  FlatList,
+  Alert,
+  Pressable,
+  ScrollView,
+} from "react-native";
+import { IconButton } from "react-native-paper";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigation } from "@react-navigation/native";
+import { fetchProducts, updateStock } from "../store/inventorySlice";
+import { API_BASE_URL } from "../utils/api";
+import { logout } from "../store/authSlice";
 
-export default function DashboardScreen({ navigation }) {
+export default function DashboardScreen() {
   const dispatch = useDispatch();
-  const { products, alerts, loading } = useSelector(state => state.inventory);
-  const sync = useSelector(state => state.sync);
-  const { isOnline, isInternetReachable } = useNetwork();
+  const navigation = useNavigation();
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(() => {
-      dispatch(getLowStockAlerts());
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const authUser = useSelector((state) => state.auth.user);
+  const { products } = useSelector((state) => state.inventory);
 
-  const loadData = () => {
-    dispatch(fetchProducts());
-    dispatch(getLowStockAlerts());
+  const [lowStockModalVisible, setLowStockModalVisible] = useState(false);
+  const [stockActionModalVisible, setStockActionModalVisible] = useState(false);
+  const [stockActionType, setStockActionType] = useState("IN");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [quantity, setQuantity] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  const loadDashboardData = async () => {
+    await dispatch(fetchProducts());
+    loadRecentActivity();
   };
 
-  const totalItems = products.length;
-  const lowStockCount = alerts.length;
-  const totalValue = products.reduce((sum, p) => sum + ((p.quantity || 0) * (p.unit_price || 0)), 0);
-  const unsyncedCount = products.filter(p => !p.is_synced).length;
+  const loadRecentActivity = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/activity/recent-stock`);
+      const data = await response.json();
+      if (response.ok) setRecentActivity(data);
+    } catch (error) {
+      console.error("Recent activity error:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [dispatch]);
+
+  const totalProducts = products.length;
+
+  const inventoryValue = useMemo(() => {
+    return products.reduce((sum, item) => {
+      return sum + Number(item.quantity || 0) * Number(item.unit_price || 0);
+    }, 0);
+  }, [products]);
+
+  const lowStockProducts = useMemo(() => {
+    return products.filter(
+      (item) => Number(item.quantity) <= Number(item.min_stock_level)
+    );
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return products;
+
+    return products.filter((item) => {
+      const name = (item.name || "").toLowerCase();
+      const code = (item.product_code || "").toLowerCase();
+      const barcode = (item.barcode || "").toLowerCase();
+      return name.includes(q) || code.includes(q) || barcode.includes(q);
+    });
+  }, [products, productSearch]);
+
+  const openStockActionModal = (type) => {
+    setStockActionType(type);
+    setSelectedProduct(null);
+    setQuantity("");
+    setProductSearch("");
+    setStockActionModalVisible(true);
+  };
+
+  const handleStockSubmit = async () => {
+    const qty = Number(quantity);
+
+    if (!selectedProduct) {
+      Alert.alert("Select product", "Please choose a product first.");
+      return;
+    }
+
+    if (!qty || qty <= 0) {
+      Alert.alert("Invalid quantity", "Enter a valid quantity greater than 0.");
+      return;
+    }
+
+    if (stockActionType === "OUT" && qty > Number(selectedProduct.quantity)) {
+      Alert.alert("Insufficient stock", `Only ${selectedProduct.quantity} unit(s) available.`);
+      return;
+    }
+
+    try {
+      await dispatch(
+        updateStock({
+          productId: selectedProduct.id,
+          quantity: qty,
+          type: stockActionType,
+          user_id: authUser?.id,
+        })
+      ).unwrap();
+
+      await loadDashboardData();
+
+      Alert.alert(
+        "Success",
+        `${selectedProduct.name} stock ${
+          stockActionType === "IN" ? "increased" : "reduced"
+        } successfully.`
+      );
+
+      setStockActionModalVisible(false);
+      setSelectedProduct(null);
+      setQuantity("");
+      setProductSearch("");
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to update stock");
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Logout", "Do you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          dispatch(logout());
+        },
+      },
+    ]);
+  };
+
+  const renderSelectableProduct = ({ item }) => {
+    const isSelected = selectedProduct?.id === item.id;
+
+    return (
+      <TouchableOpacity
+        style={[styles.productRow, isSelected && styles.selectedProductRow]}
+        onPress={() => setSelectedProduct(item)}
+      >
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productMeta}>
+            {item.product_code || "No code"} • Qty: {item.quantity}
+          </Text>
+        </View>
+        <Text style={styles.productPrice}>
+          ₦{Number(item.unit_price || 0).toFixed(2)}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderLowStockItem = ({ item }) => (
+    <View style={styles.lowStockRow}>
+      <View>
+        <Text style={styles.lowStockName}>{item.name}</Text>
+        <Text style={styles.lowStockMeta}>
+          {item.product_code || "No code"} • Min: {item.min_stock_level}
+        </Text>
+      </View>
+      <Text style={styles.lowStockQty}>Qty: {item.quantity}</Text>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadData} />
-        }
-      >
-        {/* Connection Status */}
-        <View style={[styles.statusBar, { backgroundColor: isOnline ? '#e8f5e9' : '#ffebee' }]}>
-          <Icon 
-            name={isOnline ? 'wifi' : 'wifi-off'} 
-            size={20} 
-            color={isOnline ? '#4CAF50' : '#f44336'} 
-          />
-          <Text style={[styles.statusText, { color: isOnline ? '#4CAF50' : '#f44336' }]}>
-            {isOnline ? 'Online - Real-time Sync Active' : 'Offline Mode - Local Storage'}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.topBar}>
+        <View style={styles.header}>
+          <Text style={styles.welcomeText}>
+            Welcome back{authUser?.full_name ? `, ${authUser.full_name}` : ""}!
           </Text>
-          {unsyncedCount > 0 && (
-            <Badge style={styles.syncBadge}>{unsyncedCount} pending</Badge>
-          )}
+          <Text style={styles.subText}>Here’s what’s happening in inventory today.</Text>
         </View>
 
-        {/* Welcome Section */}
-        <Card style={styles.welcomeCard}>
-          <Card.Content style={styles.welcomeContent}>
-            <Avatar.Icon size={50} icon="account-circle" style={styles.avatar} />
-            <View>
-              <Title>Welcome Back!</Title>
-              <Paragraph>Manage your inventory efficiently</Paragraph>
+        <IconButton
+          icon="logout"
+          size={24}
+          onPress={handleLogout}
+          style={styles.logoutButton}
+        />
+      </View>
+
+      <View style={styles.statsRow}>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={() => navigation.navigate("Inventory")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.statNumber}>{totalProducts}</Text>
+          <Text style={styles.statLabel}>Total Products</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={() => setLowStockModalVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.statNumber}>{lowStockProducts.length}</Text>
+          <Text style={styles.statLabel}>Low Stock Alerts</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={() => navigation.navigate("Inventory")}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.statNumber}>₦{inventoryValue.toFixed(2)}</Text>
+          <Text style={styles.statLabel}>Inventory Value</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+        <View style={styles.actionGrid}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.stockInButton]}
+            onPress={() => openStockActionModal("IN")}
+          >
+            <Text style={styles.actionButtonText}>Quick Stock In</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.stockOutButton]}
+            onPress={() => openStockActionModal("OUT")}
+          >
+            <Text style={styles.actionButtonText}>Quick Stock Out</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.inventoryButton]}
+            onPress={() => navigation.navigate("AddProduct")}
+          >
+            <Text style={styles.actionButtonText}>Add Product</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.userButton]}
+            onPress={() => navigation.navigate("UsersList")}
+          >
+            <Text style={styles.actionButtonText}>Manage Users</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.reportButton]}
+            onPress={() => navigation.navigate("Reports")}
+          >
+            <Text style={styles.actionButtonText}>View Reports</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recent Stock Activity</Text>
+
+        {recentActivity.length === 0 ? (
+          <Text style={styles.placeholderText}>No recent stock activity yet.</Text>
+        ) : (
+          recentActivity.map((item) => (
+            <View key={item.id} style={styles.activityRow}>
+              <View style={styles.activityLeft}>
+                <Text style={styles.activityTitle}>{item.product_name}</Text>
+                <Text style={styles.activityMeta}>
+                  {item.movement_type} • Qty: {item.quantity}
+                </Text>
+                <Text style={styles.activityMeta}>
+                  By: {item.full_name || "System"} {item.username ? `(@${item.username})` : ""}
+                </Text>
+              </View>
+              <Text style={styles.activityTime}>{item.created_at}</Text>
             </View>
-          </Card.Content>
-        </Card>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
-            <Card.Content>
-              <Icon name="package-variant" size={30} color="#6200ee" />
-              <Title>{totalItems}</Title>
-              <Paragraph>Total Products</Paragraph>
-            </Card.Content>
-          </Card>
-
-          <Card style={[styles.statCard, lowStockCount > 0 && styles.alertCard]}>
-            <Card.Content>
-              <Icon name="alert-circle" size={30} color={lowStockCount > 0 ? '#f44336' : '#4CAF50'} />
-              <Title>{lowStockCount}</Title>
-              <Paragraph>Low Stock Alerts</Paragraph>
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <Card.Content>
-              <Icon name="cash" size={30} color="#2196F3" />
-              <Title>${totalValue.toFixed(0)}</Title>
-              <Paragraph>Inventory Value</Paragraph>
-            </Card.Content>
-          </Card>
-        </View>
-
-        {/* Quick Actions */}
-        <Card style={styles.actionsCard}>
-          <Card.Title title="Quick Actions" left={(props) => <Avatar.Icon {...props} icon="lightning-bolt" />} />
-          <Card.Content style={styles.actions}>
-            <Button 
-              mode="contained" 
-              onPress={() => navigation.navigate('StockIn')}
-              style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-              icon="arrow-down-bold"
-              contentStyle={styles.actionButtonContent}
-            >
-              Stock In
-            </Button>
-            <Button 
-              mode="contained" 
-              onPress={() => navigation.navigate('StockOut')}
-              style={[styles.actionButton, { backgroundColor: '#f44336' }]}
-              icon="arrow-up-bold"
-              contentStyle={styles.actionButtonContent}
-            >
-              Stock Out
-            </Button>
-          </Card.Content>
-        </Card>
-
-        {/* Recent Alerts */}
-        {alerts.length > 0 && (
-          <Card style={styles.alertsCard}>
-            <Card.Title 
-              title="Low Stock Alerts" 
-              subtitle="Items requiring attention"
-              left={(props) => <Avatar.Icon {...props} icon="alert" color="#fff" style={{ backgroundColor: '#f44336' }} />} 
-            />
-            <Card.Content>
-              {alerts.slice(0, 5).map(alert => (
-                <View key={alert.id} style={styles.alertItem}>
-                  <View style={styles.alertInfo}>
-                    <Text style={styles.alertName}>{alert.name}</Text>
-                    <Text style={styles.alertSku}>SKU: {alert.sku}</Text>
-                  </View>
-                  <View style={styles.alertQty}>
-                    <Text style={styles.qtyText}>{alert.quantity}</Text>
-                    <Text style={styles.minText}>Min: {alert.min_stock_level}</Text>
-                  </View>
-                </View>
-              ))}
-              {alerts.length > 5 && (
-                <Button mode="text" onPress={() => navigation.navigate('Inventory')}>
-                  View All Alerts
-                </Button>
-              )}
-            </Card.Content>
-          </Card>
+          ))
         )}
+      </View>
 
-        {/* Sync Status */}
-        <Card style={styles.syncCard}>
-          <Card.Content style={styles.syncContent}>
-            <Icon name="sync" size={24} color="#6200ee" />
-            <View style={styles.syncInfo}>
-              <Text style={styles.syncTitle}>Last Sync</Text>
-              <Text style={styles.syncTime}>
-                {sync.lastSyncAttempt 
-                  ? new Date(sync.lastSyncAttempt).toLocaleString() 
-                  : 'Never'}
-              </Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Inventory Snapshot</Text>
+
+        {products.length === 0 ? (
+          <Text style={styles.placeholderText}>No products available yet.</Text>
+        ) : (
+          products.slice(0, 5).map((item) => {
+            const isLow = Number(item.quantity) <= Number(item.min_stock_level);
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.snapshotRow}
+                onPress={() => navigation.navigate("ProductDetails", { productId: item.id })}
+              >
+                <View>
+                  <Text style={styles.snapshotName}>{item.name}</Text>
+                  <Text style={styles.snapshotMeta}>{item.product_code || "No code"}</Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.snapshotQty,
+                    isLow ? styles.snapshotQtyLow : styles.snapshotQtyGood,
+                  ]}
+                >
+                  Qty: {item.quantity}
+                </Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </View>
+
+      <Modal
+        visible={lowStockModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLowStockModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Low Stock Products</Text>
+
+            {lowStockProducts.length === 0 ? (
+              <View style={styles.emptyModalState}>
+                <Text style={styles.placeholderText}>Products are sufficiently stocked.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={lowStockProducts}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderLowStockItem}
+              />
+            )}
+
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setLowStockModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={stockActionModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setStockActionModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, styles.tallModal]}>
+            <Text style={styles.modalTitle}>
+              {stockActionType === "IN" ? "Quick Stock In" : "Quick Stock Out"}
+            </Text>
+
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search product by name, code or barcode"
+              value={productSearch}
+              onChangeText={setProductSearch}
+            />
+
+            <View style={styles.productPickerBox}>
+              <FlatList
+                data={filteredProducts}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderSelectableProduct}
+                ListEmptyComponent={
+                  <Text style={styles.placeholderText}>No matching products found.</Text>
+                }
+              />
             </View>
-            {sync.isSyncing && <Badge>Syncing...</Badge>}
-          </Card.Content>
-        </Card>
-      </ScrollView>
 
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        onPress={() => navigation.navigate('AddProduct')}
-        label="Add Product"
-      />
-    </View>
+            {selectedProduct && (
+              <View style={styles.selectedInfo}>
+                <Text style={styles.selectedInfoText}>Selected: {selectedProduct.name}</Text>
+                <Text style={styles.selectedInfoSubText}>
+                  Available Qty: {selectedProduct.quantity}
+                </Text>
+              </View>
+            )}
+
+            <TextInput
+              style={styles.quantityInput}
+              placeholder="Enter quantity"
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="numeric"
+            />
+
+            <View style={styles.modalButtonRow}>
+              <Pressable
+                style={[styles.modalActionButton, styles.cancelButton]}
+                onPress={() => setStockActionModalVisible(false)}
+              >
+                <Text style={styles.modalActionText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.modalActionButton,
+                  stockActionType === "IN" ? styles.stockInButton : styles.stockOutButton,
+                ]}
+                onPress={handleStockSubmit}
+              >
+                <Text style={styles.modalActionText}>
+                  {stockActionType === "IN" ? "Add Stock" : "Remove Stock"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5'
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  content: { padding: 16, paddingBottom: 24, paddingTop: 50 },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
   },
-  statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    margin: 10,
-    borderRadius: 8,
-    marginBottom: 5
-  },
-  statusText: {
-    marginLeft: 8,
-    fontWeight: 'bold',
-    flex: 1
-  },
-  syncBadge: {
-    backgroundColor: '#ff9800'
-  },
-  welcomeCard: {
-    margin: 10,
-    marginTop: 5,
-    elevation: 2
-  },
-  welcomeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15
-  },
-  avatar: {
-    backgroundColor: '#6200ee'
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    padding: 10,
-    gap: 10
-  },
+  header: { flex: 1, marginRight: 8 },
+  welcomeText: { fontSize: 24, fontWeight: "bold", color: "#111" },
+  subText: { marginTop: 4, color: "#666", fontSize: 14 },
+  logoutButton: { margin: 0 },
+  statsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 18 },
   statCard: {
     flex: 1,
-    elevation: 2
+    backgroundColor: "#fff",
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    marginHorizontal: 4,
+    alignItems: "center",
+    elevation: 2,
   },
-  alertCard: {
-    backgroundColor: '#ffebee'
+  statNumber: { fontSize: 18, fontWeight: "bold", color: "#6200ee", textAlign: "center" },
+  statLabel: { marginTop: 8, fontSize: 12, color: "#666", textAlign: "center" },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 1,
   },
-  actionsCard: {
-    margin: 10,
-    elevation: 2
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 14, color: "#111" },
+  actionGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   actionButton: {
-    flex: 1,
-    borderRadius: 8
+    width: "48%",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 12,
   },
-  actionButtonContent: {
-    paddingVertical: 8
-  },
-  alertsCard: {
-    margin: 10,
-    backgroundColor: '#fff3e0',
-    elevation: 2
-  },
-  alertItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  stockInButton: { backgroundColor: "#4CAF50" },
+  stockOutButton: { backgroundColor: "#F44336" },
+  inventoryButton: { backgroundColor: "#6200ee" },
+  userButton: { backgroundColor: "#1565C0" },
+  reportButton: { backgroundColor: "#FF9800" },
+  actionButtonText: { color: "#fff", fontWeight: "bold" },
+  activityRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: "#eee",
   },
-  alertInfo: {
-    flex: 1
+  activityLeft: { marginBottom: 4 },
+  activityTitle: { fontWeight: "bold", fontSize: 15 },
+  activityMeta: { color: "#666", fontSize: 12, marginTop: 2 },
+  activityTime: { color: "#888", fontSize: 11, marginTop: 4 },
+  snapshotRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
-  alertName: {
-    fontWeight: 'bold',
-    fontSize: 16
+  snapshotName: { fontSize: 15, fontWeight: "bold" },
+  snapshotMeta: { marginTop: 2, color: "#666", fontSize: 12 },
+  snapshotQty: { fontWeight: "bold" },
+  snapshotQtyLow: { color: "#F44336" },
+  snapshotQtyGood: { color: "#2E7D32" },
+  placeholderText: { color: "#777", fontStyle: "italic", textAlign: "center", marginTop: 8 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    padding: 16,
   },
-  alertSku: {
-    color: '#666',
-    fontSize: 12,
-    marginTop: 2
+  modalCard: { backgroundColor: "#fff", borderRadius: 16, padding: 18, maxHeight: "75%" },
+  tallModal: { maxHeight: "88%" },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 14, color: "#111" },
+  emptyModalState: { paddingVertical: 30 },
+  lowStockRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
-  alertQty: {
-    alignItems: 'flex-end'
+  lowStockName: { fontWeight: "bold", fontSize: 15 },
+  lowStockMeta: { color: "#666", fontSize: 12, marginTop: 2 },
+  lowStockQty: { color: "#F44336", fontWeight: "bold" },
+  closeButton: {
+    backgroundColor: "#6200ee",
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
   },
-  qtyText: {
-    fontWeight: 'bold',
-    color: '#f44336',
-    fontSize: 18
+  closeButtonText: { color: "#fff", fontWeight: "bold" },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fafafa",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
-  minText: {
-    color: '#999',
-    fontSize: 12
+  productPickerBox: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 10,
+    maxHeight: 250,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 12,
   },
-  syncCard: {
-    margin: 10,
-    marginBottom: 80,
-    elevation: 1
+  productRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
-  syncContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15
+  selectedProductRow: { backgroundColor: "#f1e8ff", borderRadius: 8 },
+  productInfo: { flex: 1, paddingRight: 10 },
+  productName: { fontWeight: "bold", fontSize: 15 },
+  productMeta: { color: "#666", fontSize: 12, marginTop: 2 },
+  productPrice: { fontWeight: "bold", color: "#6200ee" },
+  selectedInfo: {
+    backgroundColor: "#f6f6f6",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
   },
-  syncInfo: {
-    flex: 1
+  selectedInfoText: { fontWeight: "bold", color: "#111" },
+  selectedInfoSubText: { color: "#666", marginTop: 2 },
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fafafa",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
   },
-  syncTitle: {
-    fontWeight: 'bold',
-    color: '#333'
+  modalButtonRow: { flexDirection: "row", justifyContent: "space-between" },
+  modalActionButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: "center",
+    marginHorizontal: 4,
   },
-  syncTime: {
-    color: '#666',
-    fontSize: 12
-  },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#6200ee'
-  }
+  cancelButton: { backgroundColor: "#9E9E9E" },
+  modalActionText: { color: "#fff", fontWeight: "bold" },
 });

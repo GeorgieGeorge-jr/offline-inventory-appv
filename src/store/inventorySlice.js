@@ -1,166 +1,115 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { db } from '../database/Database';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { API_BASE_URL } from "../utils/api";
 
-// Async thunks for offline-first operations
-export const fetchProducts = createAsyncThunk(
-  'inventory/fetchProducts',
-  async () => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          'SELECT * FROM products ORDER BY updated_at DESC',
-          [],
-          (_, { rows }) => {
-            const products = rows._array;
-            resolve(products);
-          },
-          (_, error) => reject(error)
-        );
-      });
-    });
+export const fetchProducts = createAsyncThunk("inventory/fetchProducts", async () => {
+  const response = await fetch(`${API_BASE_URL}/products`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch products");
   }
-);
 
-export const addProduct = createAsyncThunk(
-  'inventory/addProduct',
-  async (productData, { getState }) => {
-    const id = uuidv4();
-    const timestamp = new Date().toISOString();
+  return data;
+});
 
-    const product = {
-      id,
-      ...productData,
-      created_at: timestamp,
-      updated_at: timestamp,
-      is_synced: 0,
-      pending_operation: 'CREATE'
-    };
+export const addProduct = createAsyncThunk("inventory/addProduct", async (productData) => {
+  const response = await fetch(`${API_BASE_URL}/products`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(productData),
+  });
 
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          `INSERT INTO products (id, name, sku, category, quantity, min_stock_level, 
-           unit_price, description, barcode, created_at, updated_at, is_synced, pending_operation)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [product.id, product.name, product.sku, product.category, product.quantity,
-           product.min_stock_level, product.unit_price, product.description, product.barcode,
-           product.created_at, product.updated_at, product.is_synced, product.pending_operation],
-          () => resolve(product),
-          (_, error) => reject(error)
-        );
-      });
-    });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to add product");
   }
-);
+
+  return data;
+});
+
+export const deleteProduct = createAsyncThunk("inventory/deleteProduct", async (productId) => {
+  const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+    method: "DELETE",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to delete product");
+  }
+
+  return productId;
+});
 
 export const updateStock = createAsyncThunk(
-  'inventory/updateStock',
-  async ({ productId, quantity, type, notes }, { dispatch }) => {
-    const transactionId = uuidv4();
-    const timestamp = new Date().toISOString();
-
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        // Update product quantity
-        tx.executeSql(
-          'UPDATE products SET quantity = quantity + ?, updated_at = ?, is_synced = 0, pending_operation = ? WHERE id = ?',
-          [type === 'IN' ? quantity : -quantity, timestamp, 'UPDATE', productId],
-          () => {
-            // Record transaction
-            tx.executeSql(
-              `INSERT INTO transactions (id, product_id, type, quantity, timestamp, notes, synced)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [transactionId, productId, type, quantity, timestamp, notes, 0],
-              () => {
-                dispatch(fetchProducts());
-                resolve({ success: true });
-              },
-              (_, error) => reject(error)
-            );
-          },
-          (_, error) => reject(error)
-        );
-      });
+  "inventory/updateStock",
+  async ({ productId, quantity, type, user_id }) => {
+    const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quantity, type, user_id }),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update stock");
+    }
+
+    return data;
   }
 );
 
-export const getLowStockAlerts = createAsyncThunk(
-  'inventory/getLowStockAlerts',
-  async () => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          'SELECT * FROM products WHERE quantity <= min_stock_level',
-          [],
-          (_, { rows }) => resolve(rows._array),
-          (_, error) => reject(error)
-        );
-      });
-    });
-  }
-);
+export const getLowStockAlerts = createAsyncThunk("inventory/getLowStockAlerts", async () => {
+  const response = await fetch(`${API_BASE_URL}/products`);
+  const data = await response.json();
 
-export const deleteProduct = createAsyncThunk(
-  'inventory/deleteProduct',
-  async (productId, { dispatch }) => {
-    return new Promise((resolve, reject) => {
-      db.transaction(tx => {
-        tx.executeSql(
-          'DELETE FROM products WHERE id = ?',
-          [productId],
-          () => {
-            dispatch(fetchProducts());
-            resolve({ success: true });
-          },
-          (_, error) => reject(error)
-        );
-      });
-    });
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch low stock alerts");
   }
-);
+
+  return data.filter((p) => Number(p.quantity) <= Number(p.min_stock_level));
+});
 
 const inventorySlice = createSlice({
-  name: 'inventory',
+  name: "inventory",
   initialState: {
     products: [],
-    transactions: [],
     alerts: [],
     loading: false,
     error: null,
-    lastSync: null
   },
-  reducers: {
-    setLastSync: (state, action) => {
-      state.lastSync = action.payload;
-    },
-    clearError: (state) => {
-      state.error = null;
-    }
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.products = action.payload;
         state.loading = false;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
-        state.error = action.error.message;
         state.loading = false;
+        state.error = action.error.message;
       })
       .addCase(addProduct.fulfilled, (state, action) => {
         state.products.unshift(action.payload);
       })
+      .addCase(deleteProduct.fulfilled, (state, action) => {
+        state.products = state.products.filter((p) => p.id !== action.payload);
+      })
+      .addCase(updateStock.fulfilled, (state, action) => {
+        state.products = state.products.map((p) =>
+          p.id === action.payload.id ? action.payload : p
+        );
+      })
       .addCase(getLowStockAlerts.fulfilled, (state, action) => {
         state.alerts = action.payload;
       });
-  }
+  },
 });
 
-export const { setLastSync, clearError } = inventorySlice.actions;
 export default inventorySlice.reducer;

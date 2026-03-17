@@ -1,8 +1,12 @@
 const express = require("express");
 const cors = require("cors");
-const db = require("./db");
-const authRoutes = require("./routes/auth");
+require("dotenv").config();
 
+const authRoutes = require("./routes/auth");
+const productRoutes = require("./routes/products");
+const salesRoutes = require("./routes/sales");
+const userRoutes = require("./routes/users");
+const activityRoutes = require("./routes/activity");
 
 const app = express();
 
@@ -10,6 +14,10 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/auth", authRoutes);
+app.use("/products", productRoutes);
+app.use("/sales", salesRoutes);
+app.use("/users", userRoutes);
+app.use("/activity", activityRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).send("RIMS backend running");
@@ -17,7 +25,6 @@ app.get("/", (req, res) => {
 
 const PORT = 5001;
 
-app.listen(5001, "0.0.0.0", () => {
-  console.log(`Server running on http://127.0.0.1:${5001}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
-

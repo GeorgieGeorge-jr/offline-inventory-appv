@@ -1,33 +1,31 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, Text } from 'react-native';
-import { TextInput, Button, Surface, Title } from 'react-native-paper';
-import { useDispatch } from 'react-redux';
-import { login } from '../store/authSlice';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-// import { Platform } from 'react-native';
-
-// const API_BASE_URL =
-//   Platform.OS === 'ios'
-//   // ? 'http://192.168.1.5:5001'
-//     : 'http://192.168.1.5:5001';
+import React, { useState } from "react";
+import { View, StyleSheet, KeyboardAvoidingView, Platform, Text, Alert } from "react-native";
+import { TextInput, Button, Surface, Title } from "react-native-paper";
+import { useDispatch } from "react-redux";
+import { login } from "../store/authSlice";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { API_BASE_URL } from "../utils/api";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [secureText, setSecureText] = useState(true);
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
-    if (!username || !password) return;
+    if (!username || !password) {
+      Alert.alert("Missing fields", "Enter username and password");
+      return;
+    }
 
     try {
       setLoading(true);
 
-      const response = await fetch('http://10.106.1.37:5001/auth/login', {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
       });
@@ -35,13 +33,13 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.log(data);
+        Alert.alert("Login failed", data.message || "Invalid login");
         return;
       }
 
       dispatch(
         login({
-          id: data.id || username,
+          id: data.id,
           username,
           role: data.role,
           full_name: data.full_name,
@@ -49,7 +47,8 @@ export default function LoginScreen() {
         })
       );
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
+      Alert.alert("Error", "Network or server error");
     } finally {
       setLoading(false);
     }
@@ -57,7 +56,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <Surface style={styles.surface}>
@@ -87,7 +86,7 @@ export default function LoginScreen() {
           left={<TextInput.Icon icon="lock" />}
           right={
             <TextInput.Icon
-              icon={secureText ? 'eye-off' : 'eye'}
+              icon={secureText ? "eye-off" : "eye"}
               onPress={() => setSecureText(!secureText)}
             />
           }
@@ -111,44 +110,13 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  surface: {
-    padding: 25,
-    borderRadius: 15,
-    elevation: 4,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  title: {
-    marginTop: 10,
-    fontSize: 24,
-  },
-  subtitle: {
-    marginTop: 5,
-    color: '#666',
-    fontSize: 14,
-  },
-  input: {
-    marginBottom: 15,
-  },
-  button: {
-    marginTop: 10,
-    borderRadius: 8,
-  },
-  buttonContent: {
-    paddingVertical: 8,
-  },
-  hint: {
-    textAlign: 'center',
-    marginTop: 15,
-    color: '#999',
-    fontSize: 12,
-  },
+  container: { flex: 1, justifyContent: "center", padding: 20, backgroundColor: "#f5f5f5" },
+  surface: { padding: 25, borderRadius: 15, elevation: 4 },
+  logoContainer: { alignItems: "center", marginBottom: 30 },
+  title: { marginTop: 10, fontSize: 24 },
+  subtitle: { marginTop: 5, color: "#666", fontSize: 14 },
+  input: { marginBottom: 15 },
+  button: { marginTop: 10, borderRadius: 8 },
+  buttonContent: { paddingVertical: 8 },
+  hint: { textAlign: "center", marginTop: 15, color: "#999", fontSize: 12 },
 });
