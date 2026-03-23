@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } fr
 import { useDispatch } from "react-redux";
 import { deleteProduct } from "../store/inventorySlice";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { API_BASE_URL } from "../utils/api";
+import { getProductById } from "../services/dataService";
 
 export default function ProductDetailsScreen() {
   const route = useRoute();
@@ -14,13 +14,11 @@ export default function ProductDetailsScreen() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProduct = async () => {
+    const loadProduct = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/products/${productId}`);
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || "Failed to load product");
+      const data = await getProductById(productId);
+      if (!data) throw new Error("Failed to load product");
       setProduct(data);
     } catch (error) {
       Alert.alert("Error", error.message);

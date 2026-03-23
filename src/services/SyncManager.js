@@ -1,137 +1,102 @@
-import { useEffect } from 'react';
-import { useNetwork } from './NetworkProvider';
-import { db } from '../database/Database';
-import { showMessage } from 'react-native-flash-message';
-import { useDispatch } from 'react-redux';
-import { setLastSync, fetchProducts } from '../store/inventorySlice';
+import { useEffect, useRef } from "react";
+import { useNetwork } from "./NetworkProvider";
+import { showMessage } from "react-native-flash-message";
+import { useDispatch } from "react-redux";
+import { setLastSync, fetchProducts } from "../store/inventorySlice";
 import {
   setSyncing,
   setPendingItems,
   setLastSyncAttempt,
-} from '../store/syncSlice';
+} from "../store/syncSlice";
+import { getPendingSyncCount } from "./dataService";
+import { runSyncEngine } from "./syncEngine";
 
 export const SyncManager = () => {
   const { isOnline } = useNetwork();
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (isOnline) {
-      syncData();
-    }
+  const syncInProgressRef = useRef(false);
+  const firstRunRef = useRef(true);
 
-    const interval = setInterval(() => {
-      checkPendingItems();
-    }, 30000);
-
-    checkPendingItems();
-
-    return () => clearInterval(interval);
-  }, [isOnline]);
-
-  const checkPendingItems = async () => {
+  const refreshPending = async () => {
     try {
-      const result = await db.getFirstAsync(
-        'SELECT COUNT(*) as count FROM products WHERE is_synced = 0'
-      );
-
-      dispatch(setPendingItems(result?.count ?? 0));
+      const count = await getPendingSyncCount();
+      dispatch(setPendingItems(count));
+      return count;
     } catch (error) {
-      console.error('Error checking pending items:', error);
+      console.error("Pending count error:", error);
+      return 0;
     }
   };
 
-  const syncData = async () => {
+  const syncData = async (showToast = false) => {
+    if (!isOnline) return;
+    if (syncInProgressRef.current) return;
+
     try {
+      syncInProgressRef.current = true;
       dispatch(setSyncing(true));
       dispatch(setLastSyncAttempt(new Date().toISOString()));
 
-      const unsyncedProducts = await getUnsyncedProducts();
-      const unsyncedTransactions = await getUnsyncedTransactions();
+      const beforeCount = await getPendingSyncCount();
+      const result = await runSyncEngine();
+      const afterCount = await getPendingSyncCount();
 
-      if (unsyncedProducts.length === 0 && unsyncedTransactions.length === 0) {
-        dispatch(setPendingItems(0));
-        return;
+      dispatch(setPendingItems(afterCount));
+
+      if (result.lastSync) {
+        dispatch(setLastSync(result.lastSync));
       }
 
-      await simulateSync(unsyncedProducts, unsyncedTransactions);
-      await markAsSynced(unsyncedProducts, unsyncedTransactions);
+      if (result.pushed > 0 || result.pulled > 0 || beforeCount !== afterCount) {
+        dispatch(fetchProducts());
+      }
 
-      dispatch(setLastSync(new Date().toISOString()));
-      dispatch(setPendingItems(0));
-      dispatch(fetchProducts());
-
-      showMessage({
-        message: 'Sync Complete',
-        description: `Synced ${unsyncedProducts.length} products and ${unsyncedTransactions.length} transactions`,
-        type: 'success',
-        duration: 3000,
-      });
+      if (showToast && (result.pushed > 0 || result.pulled > 0)) {
+        showMessage({
+          message: "Sync Complete",
+          description: `Pushed ${result.pushed}, pulled ${result.pulled}`,
+          type: "success",
+          duration: 2200,
+        });
+      }
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error("Sync error:", error);
 
-      showMessage({
-        message: 'Sync Failed',
-        description: error?.message || 'An unknown error occurred during sync',
-        type: 'danger',
-      });
+      if (showToast) {
+        showMessage({
+          message: "Sync Failed",
+          description: error?.message || "Could not sync",
+          type: "danger",
+          duration: 2200,
+        });
+      }
     } finally {
+      syncInProgressRef.current = false;
       dispatch(setSyncing(false));
+      refreshPending();
     }
   };
 
-  const getUnsyncedProducts = async () => {
-    try {
-      const rows = await db.getAllAsync(
-        'SELECT * FROM products WHERE is_synced = 0'
-      );
-      return rows ?? [];
-    } catch (error) {
-      console.error('Error fetching unsynced products:', error);
-      throw error;
+  useEffect(() => {
+    refreshPending();
+
+    if (isOnline) {
+      syncData(!firstRunRef.current);
     }
-  };
 
-  const getUnsyncedTransactions = async () => {
-    try {
-      const rows = await db.getAllAsync(
-        'SELECT * FROM transactions WHERE synced = 0'
-      );
-      return rows ?? [];
-    } catch (error) {
-      console.error('Error fetching unsynced transactions:', error);
-      throw error;
-    }
-  };
+    firstRunRef.current = false;
 
-  const simulateSync = async (products, transactions) => {
-    // TODO: Replace with actual API calls to your backend
-    console.log('Syncing to server:', { products, transactions });
+    const quickInterval = setInterval(() => {
+      refreshPending();
 
-    return new Promise((resolve) => setTimeout(resolve, 1500));
-  };
+      if (isOnline) {
+        syncData(false);
+      }
+    }, 10000);
 
-  const markAsSynced = async (products, transactions) => {
-    try {
-      await db.withTransactionAsync(async () => {
-        for (const product of products) {
-          await db.runAsync(
-            'UPDATE products SET is_synced = 1, pending_operation = NULL WHERE id = ?',
-            [product.id]
-          );
-        }
-
-        for (const transaction of transactions) {
-          await db.runAsync(
-            'UPDATE transactions SET synced = 1 WHERE id = ?',
-            [transaction.id]
-          );
-        }
-      });
-    } catch (error) {
-      console.error('Error marking records as synced:', error);
-      throw error;
-    }
-  };
+    return () => clearInterval(quickInterval);
+  }, [isOnline]);
 
   return null;
 };

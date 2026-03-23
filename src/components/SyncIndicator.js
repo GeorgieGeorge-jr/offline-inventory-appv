@@ -1,93 +1,121 @@
-import React from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { Text, Badge } from 'react-native-paper';
-import { useSelector } from 'react-redux';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { useEffect, useRef } from "react";
+import { View, StyleSheet, Animated } from "react-native";
+import { Text } from "react-native-paper";
+import { useSelector } from "react-redux";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { useNetwork } from "../services/NetworkProvider";
 
 export default function SyncIndicator() {
-  const { isSyncing, pendingItems } = useSelector(state => state.sync);
-  const [animation] = React.useState(new Animated.Value(0));
+  const { isSyncing, pendingItems, lastSyncAttempt } = useSelector((state) => state.sync);
+  const { isOnline } = useNetwork();
 
-  React.useEffect(() => {
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let loopAnimation;
+
     if (isSyncing) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(animation, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true
-          }),
-          Animated.timing(animation, {
-            toValue: 0,
-            duration: 0,
-            useNativeDriver: true
-          })
-        ])
-      ).start();
-    } else {
-      animation.setValue(0);
-    }
-  }, [isSyncing]);
+      rotateAnim.setValue(0);
 
-  const spin = animation.interpolate({
+      loopAnimation = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        })
+      );
+
+      loopAnimation.start();
+    } else {
+      rotateAnim.stopAnimation();
+      rotateAnim.setValue(0);
+    }
+
+    return () => {
+      if (loopAnimation) {
+        loopAnimation.stop();
+      }
+    };
+  }, [isSyncing, rotateAnim]);
+
+  const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
+    outputRange: ["0deg", "360deg"],
   });
 
   if (!isSyncing && pendingItems === 0) return null;
 
+  const statusText = isSyncing
+    ? "Syncing changes..."
+    : !isOnline
+    ? `${pendingItems} pending offline`
+    : `${pendingItems} pending sync`;
+
   return (
-    <View style={styles.container}>
-      {isSyncing ? (
-        <View style={styles.syncingContainer}>
+    <View style={styles.wrapper} pointerEvents="none">
+      <View
+        style={[
+          styles.container,
+          isSyncing
+            ? styles.syncingContainer
+            : !isOnline
+            ? styles.offlinePendingContainer
+            : styles.pendingContainer,
+        ]}
+      >
+        {isSyncing ? (
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Icon name="sync" size={16} color="#6200ee" />
+            <Icon name="sync" size={16} color="#1D4ED8" />
           </Animated.View>
-          <Text style={styles.syncingText}>Syncing...</Text>
-        </View>
-      ) : (
-        <View style={styles.pendingContainer}>
-          <Icon name="cloud-upload" size={16} color="#ff9800" />
-          <Text style={styles.pendingText}>{pendingItems} pending</Text>
-        </View>
-      )}
+        ) : !isOnline ? (
+          <Icon name="cloud-off-outline" size={16} color="#B45309" />
+        ) : (
+          <Icon name="cloud-upload-outline" size={16} color="#B45309" />
+        )}
+
+        <Text style={styles.statusText}>{statusText}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: "absolute",
+    top: 64,
+    right: 14,
+    zIndex: 9998,
+  },
+
   container: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    zIndex: 100
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
+
   syncingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    gap: 5
+    backgroundColor: "#DBEAFE",
   },
-  syncingText: {
-    fontSize: 12,
-    color: '#1976d2',
-    fontWeight: '600'
-  },
+
   pendingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff3e0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    gap: 5
+    backgroundColor: "#FEF3C7",
   },
-  pendingText: {
+
+  offlinePendingContainer: {
+    backgroundColor: "#FDE68A",
+  },
+
+  statusText: {
+    marginLeft: 7,
     fontSize: 12,
-    color: '#f57c00',
-    fontWeight: '600'
-  }
+    fontWeight: "700",
+    color: "#111827",
+  },
 });

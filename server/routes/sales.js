@@ -4,7 +4,7 @@ const db = require("../db");
 
 // Create a sale
 router.post("/", (req, res) => {
-  const { staff_user_id, items } = req.body;
+  const { staff_user_id, items } = req.body || {};
 
   if (!staff_user_id || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ message: "staff_user_id and items are required" });

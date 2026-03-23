@@ -4,7 +4,8 @@ import { TextInput, Button, Surface, Title } from "react-native-paper";
 import { useDispatch } from "react-redux";
 import { login } from "../store/authSlice";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { API_BASE_URL } from "../utils/api";
+import { loginUser } from "../services/authService";
+import { fetchProducts } from "../store/inventorySlice";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
@@ -21,34 +22,15 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
+            const user = await loginUser(username.trim(), password);
+      dispatch(login(user));
+      dispatch(fetchProducts());
 
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert("Login failed", data.message || "Invalid login");
-        return;
+      if (user.isOfflineLogin) {
+        Alert.alert("Offline Login", "Logged in with cached account");
       }
-
-      dispatch(
-        login({
-          id: data.id,
-          username,
-          role: data.role,
-          full_name: data.full_name,
-          token: data.token,
-        })
-      );
     } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert("Error", "Network or server error");
+      Alert.alert("Login failed", error.message || "Invalid login");
     } finally {
       setLoading(false);
     }
@@ -103,7 +85,7 @@ export default function LoginScreen() {
           Login
         </Button>
 
-        <Text style={styles.hint}>Use admin1 / password or staff1 / password</Text>
+        <Text style={styles.hint}>Online first login, offline reuse after that</Text>
       </Surface>
     </KeyboardAvoidingView>
   );

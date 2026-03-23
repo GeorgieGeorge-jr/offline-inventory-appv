@@ -1,40 +1,91 @@
-import React from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { Surface, Text, IconButton } from 'react-native-paper';
-import { useNetwork } from '../services/NetworkProvider';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, Animated } from "react-native";
+import { useNetwork } from "../services/NetworkProvider";
 
 export default function OfflineBanner() {
   const { isOnline } = useNetwork();
+  const [hasMounted, setHasMounted] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-80)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  if (isOnline) return null;
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMounted) return;
+
+    if (!isOnline) {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -80,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isOnline, hasMounted, slideAnim, opacityAnim]);
 
   return (
-    <Surface style={styles.container}>
-      <View style={styles.content}>
-        <Icon name="wifi-off" size={20} color="#fff" />
-        <Text style={styles.text}>You are offline. Changes will sync when connection is restored.</Text>
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.container,
+        {
+          opacity: opacityAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.banner}>
+        <Text style={styles.text}>No connection. Offline mode is active.</Text>
       </View>
-    </Surface>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f44336',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    elevation: 4
+    position: "absolute",
+    top: 14,
+    left: 14,
+    right: 14,
+    zIndex: 9999,
+    alignItems: "center",
   },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8
+  banner: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 5,
   },
   text: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600'
-  }
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontWeight: "700",
+    fontSize: 13,
+  },
 });

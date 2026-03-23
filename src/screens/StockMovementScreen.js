@@ -4,7 +4,7 @@ import { IconButton } from "react-native-paper";
 import { useDispatch, useSelector } from "react-redux";
 import { updateStock, fetchProducts } from "../store/inventorySlice";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { API_BASE_URL } from "../utils/api";
+import { getProductByBarcodeOrCode } from "../services/dataService";
 import InlineScanner from "../components/InlineScanner";
 
 export default function StockMovementScreen() {
@@ -60,13 +60,12 @@ export default function StockMovementScreen() {
     }
   };
 
-  const handleProductScan = async ({ data }) => {
+    const handleProductScan = async ({ data }) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/products/lookup/${encodeURIComponent(data)}`);
-      const product = await res.json();
+      const product = await getProductByBarcodeOrCode(data);
 
-      if (!res.ok) {
-        throw new Error(product.message || "Product not found");
+      if (!product) {
+        throw new Error("Product not found");
       }
 
       setSelectedProduct(product);
@@ -96,7 +95,7 @@ export default function StockMovementScreen() {
           </View>
 
           <IconButton
-            icon={scannerVisible ? "barcode-scan-off" : "barcode-scan"}
+            icon={scannerVisible ? "barcode-off" : "barcode-scan"}
             mode="contained-tonal"
             size={24}
             onPress={() => setScannerVisible((prev) => !prev)}

@@ -80,7 +80,7 @@ export default function AddProductScreen() {
             onChangeText={setBarcode}
           />
           <IconButton
-            icon={scannerVisible ? "barcode-scan-off" : "barcode-scan"}
+            icon={scannerVisible ? "barcode-off" : "barcode-scan"}
             mode="contained-tonal"
             size={24}
             onPress={() => setScannerVisible((prev) => !prev)}
