@@ -11,3 +11,7 @@ npm-debug.*
 web-build/
 .env
 .DS_Store
+
+android/build/
+ios/build/
+backend/node_modules/

@@ -13,7 +13,10 @@ import { SyncManager } from "./src/services/SyncManager";
 import OfflineBanner from "./src/components/OfflineBanner";
 import SyncIndicator from "./src/components/SyncIndicator";
 import { AlertManager } from "./src/services/AlertManager";
-import { requestNotificationPermission } from "./src/services/notificationService";
+import {
+  configureNotifications,
+  requestNotificationPermission,
+} from "./src/services/notificationService";
 
 export default function App() {
   const [dbReady, setDbReady] = useState(false);
@@ -22,6 +25,8 @@ export default function App() {
     const setup = async () => {
       try {
         await initDatabase();
+        await configureNotifications();
+        await requestNotificationPermission();
         setDbReady(true);
       } catch (error) {
         console.error("Database init error:", error);

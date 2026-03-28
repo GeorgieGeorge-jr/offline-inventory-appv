@@ -1,14 +1,37 @@
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
-export async function requestNotificationPermission() {
-  const { status } = await Notifications.requestPermissionsAsync();
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
-  if (status !== "granted") {
-    console.log("Notification permission not granted");
-    return false;
+export async function configureNotifications() {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#4F46E5",
+      sound: "default",
+    });
+  }
+}
+
+export async function requestNotificationPermission() {
+  const existing = await Notifications.getPermissionsAsync();
+  let finalStatus = existing.status;
+
+  if (finalStatus !== "granted") {
+    const requested = await Notifications.requestPermissionsAsync();
+    finalStatus = requested.status;
   }
 
-  return true;
+  return finalStatus === "granted";
 }
 
 export async function sendLocalNotification({ title, body }) {
@@ -16,8 +39,8 @@ export async function sendLocalNotification({ title, body }) {
     content: {
       title,
       body,
-      sound: true,
+      sound: "default",
     },
-    trigger: null, // immediate
+    trigger: null,
   });
 }

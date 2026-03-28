@@ -1,4 +1,4 @@
-package com.yourcompany.offlineinventory
+package com.offlineinventory
 
 import android.app.Application
 import android.content.res.Configuration

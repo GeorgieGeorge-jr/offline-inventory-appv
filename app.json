@@ -11,34 +11,29 @@
       "resizeMode": "contain",
       "backgroundColor": "#6200ee"
     },
-    "assetBundlePatterns": [
-      "**/*"
+    "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Offline Inventory to access your camera",
+          "barcodeScannerEnabled": true
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.offlineinventory",
+      "bundleIdentifier": "com.offlineinventory",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow Offline Inventory to use the camera for barcode and QR code scanning."
-      },
-      "plugins": [
-        [
-          "expo-camera",
-          {
-            "cameraPermission": "Allow Offline Inventory to access your camera",
-            "barcodeScannerEnabled": true
-          }
-        ]
-      ]
+      }
     },
     "android": {
+      "package": "com.offlineinventory",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#6200ee"
-      },
-      "package": "com.yourcompany.offlineinventory"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      }
     },
     "extra": {
       "eas": {

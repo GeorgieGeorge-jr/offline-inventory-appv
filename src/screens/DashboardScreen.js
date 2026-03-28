@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { fetchProducts, updateStock } from "../store/inventorySlice";
 import { getRecentStockActivity } from "../services/dataService";
 import { logout } from "../store/authSlice";
+import { sendLocalNotification } from "../services/notificationService";
 
 export default function DashboardScreen() {
   const dispatch = useDispatch();
@@ -283,6 +284,7 @@ export default function DashboardScreen() {
           >
             <Text style={styles.actionButtonText}>Quick Stock Out</Text>
           </TouchableOpacity>
+          
         </View>
 
         <Menu

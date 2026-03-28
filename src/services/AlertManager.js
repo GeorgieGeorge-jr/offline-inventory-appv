@@ -1,21 +1,23 @@
 import { useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
-import {
-  getUnreadAlerts,
-  markAlertAsRead,
-} from "./dataService";
+import { getUnreadAlerts, markAlertAsRead } from "./dataService";
 import { sendLocalNotification } from "./notificationService";
 
 export const AlertManager = () => {
   const user = useSelector((state) => state.auth.user);
   const intervalRef = useRef(null);
+  const isCheckingRef = useRef(false);
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
 
     const checkAlerts = async () => {
+      if (isCheckingRef.current) return;
+
       try {
-        const alerts = await getUnreadAlerts(5);
+        isCheckingRef.current = true;
+
+        const alerts = await getUnreadAlerts(10);
 
         for (const alert of alerts) {
           await sendLocalNotification({
@@ -27,19 +29,16 @@ export const AlertManager = () => {
         }
       } catch (error) {
         console.error("Alert manager error:", error);
+      } finally {
+        isCheckingRef.current = false;
       }
     };
 
-    // run immediately
     checkAlerts();
-
-    // then poll every 8 seconds
-    intervalRef.current = setInterval(checkAlerts, 8000);
+    intervalRef.current = setInterval(checkAlerts, 5000);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [user]);
 

@@ -531,7 +531,7 @@ export async function getUnreadAlerts(limit = 10) {
        WHERE is_read = 0
        ORDER BY datetime(created_at) DESC
        LIMIT ?`,
-      [limit]
+      [Number(limit)]
     )
   ) || [];
 }
@@ -539,7 +539,7 @@ export async function getUnreadAlerts(limit = 10) {
 export async function markAlertAsRead(alertId) {
   await db.runAsync(
     `UPDATE alerts SET is_read = 1 WHERE id = ?`,
-    [alertId]
+    [String(alertId)]
   );
 }
 
@@ -566,6 +566,8 @@ export async function syncQueueToServer() {
             description: payload.description,
           }),
         });
+
+        
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Product create sync failed");

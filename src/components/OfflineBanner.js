@@ -36,7 +36,7 @@ export default function OfflineBanner() {
           useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, {
-          toValue: 0,
+          toValue: 1,
           duration: 220,
           useNativeDriver: true,
         }),
@@ -65,7 +65,7 @@ export default function OfflineBanner() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 14,
+    top: 24,
     left: 14,
     right: 14,
     zIndex: 9999,
@@ -74,7 +74,8 @@ const styles = StyleSheet.create({
   banner: {
     backgroundColor: "#DC2626",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 15,
+    marginTop: 5,
     borderRadius: 14,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },

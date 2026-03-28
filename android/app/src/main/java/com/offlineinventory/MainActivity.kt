@@ -1,4 +1,4 @@
-package com.yourcompany.offlineinventory
+package com.offlineinventory
 
 import android.os.Build
 import android.os.Bundle
