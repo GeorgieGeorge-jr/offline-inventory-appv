@@ -50,7 +50,8 @@ export default function OfflineBanner() {
       style={[
         styles.container,
         {
-          opacity: opacityAnim,
+          // opacity: opacityAnim,
+          opacity: 1,
           transform: [{ translateY: slideAnim }],
         },
       ]}

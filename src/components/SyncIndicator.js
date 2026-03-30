@@ -82,7 +82,7 @@ export default function SyncIndicator() {
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    top: 64,
+    top: 70,
     right: 14,
     zIndex: 9998,
   },
@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
 
   pendingContainer: {
     backgroundColor: "#FEF3C7",
+    marginTop: 15
   },
 
   offlinePendingContainer: {
