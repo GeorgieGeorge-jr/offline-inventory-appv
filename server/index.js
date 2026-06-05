@@ -102,4 +102,4 @@ app.use(errorHandler);
 app.listen(env.PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${env.PORT}`);
 });
-console.log("API_BASE_URL =", API_BASE_URL);
+console.log("API_BASE_URL =", process.env.API_BASE_URL);
