@@ -5,17 +5,6 @@ export const db = SQLite.openDatabaseSync("inventory.db");
 export async function initDatabase() {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = OFF;
-
-    DROP TABLE IF EXISTS sale_items;
-    DROP TABLE IF EXISTS sales;
-    DROP TABLE IF EXISTS stock_movements;
-    DROP TABLE IF EXISTS alerts;
-    DROP TABLE IF EXISTS sync_queue;
-    DROP TABLE IF EXISTS sync_meta;
-    DROP TABLE IF EXISTS products;
-    DROP TABLE IF EXISTS users;
-
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS products (
@@ -38,6 +27,7 @@ export async function initDatabase() {
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_products_product_code ON products(product_code);
     CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
+    CREATE INDEX IF NOT EXISTS idx_products_server_id ON products(server_id);
 
     CREATE TABLE IF NOT EXISTS stock_movements (
       id TEXT PRIMARY KEY NOT NULL,
@@ -88,6 +78,7 @@ export async function initDatabase() {
     );
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_users_server_id ON users(server_id);
 
     CREATE TABLE IF NOT EXISTS alerts (
       id TEXT PRIMARY KEY NOT NULL,
@@ -118,4 +109,34 @@ export async function initDatabase() {
       value TEXT
     );
   `);
+
+  await runLightweightMigrations();
+}
+
+async function addColumnIfMissing(tableName, columnName, definition) {
+  const columns = await db.getAllAsync(`PRAGMA table_info(${tableName})`);
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    await db.execAsync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
+
+async function runLightweightMigrations() {
+  await addColumnIfMissing("products", "server_id", "INTEGER");
+  await addColumnIfMissing("products", "is_deleted", "INTEGER DEFAULT 0");
+  await addColumnIfMissing("products", "is_synced", "INTEGER DEFAULT 0");
+  await addColumnIfMissing("products", "pending_operation", "TEXT");
+
+  await addColumnIfMissing("stock_movements", "server_id", "INTEGER");
+  await addColumnIfMissing("stock_movements", "is_synced", "INTEGER DEFAULT 0");
+
+  await addColumnIfMissing("sales", "server_id", "INTEGER");
+  await addColumnIfMissing("sales", "is_synced", "INTEGER DEFAULT 0");
+
+  await addColumnIfMissing("sale_items", "is_synced", "INTEGER DEFAULT 0");
+
+  await addColumnIfMissing("users", "server_id", "INTEGER");
+  await addColumnIfMissing("users", "password_plain", "TEXT");
+  await addColumnIfMissing("users", "is_synced", "INTEGER DEFAULT 0");
 }

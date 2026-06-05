@@ -1,6 +1,6 @@
 import { db } from "../database/Database";
 import { v4 as uuidv4 } from "uuid";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, assertApiBaseUrl, getAuthHeaders } from "../utils/api";
 
 const now = () => new Date().toISOString();
 
@@ -544,6 +544,8 @@ export async function markAlertAsRead(alertId) {
 }
 
 export async function syncQueueToServer() {
+  assertApiBaseUrl();
+
   const queueItems = await getPendingQueueItems();
   let pushed = 0;
 
@@ -554,7 +556,7 @@ export async function syncQueueToServer() {
       if (item.entity_type === "product" && item.operation === "create") {
         const response = await fetch(`${API_BASE_URL}/products`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             product_code: payload.product_code,
             name: payload.name,
@@ -567,16 +569,16 @@ export async function syncQueueToServer() {
           }),
         });
 
-        
-
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Product create sync failed");
+
+        const serverProduct = data.product || data;
 
         await db.runAsync(
           `UPDATE products
            SET server_id = ?, is_synced = 1, pending_operation = NULL, updated_at = ?
            WHERE id = ?`,
-          [data.id, data.updated_at || now(), item.entity_id]
+          [serverProduct.id, serverProduct.updated_at || now(), item.entity_id]
         );
 
         await markQueueItemSynced(item.id);
@@ -590,7 +592,7 @@ export async function syncQueueToServer() {
 
         const response = await fetch(`${API_BASE_URL}/products/${localProduct.server_id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             product_code: localProduct.product_code,
             name: localProduct.name,
@@ -606,20 +608,23 @@ export async function syncQueueToServer() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Product update sync failed");
 
+        const serverProduct = data.product || data;
+
         await db.runAsync(
           `UPDATE products
            SET is_synced = 1, pending_operation = NULL, updated_at = ?
            WHERE id = ?`,
-          [data.updated_at || now(), item.entity_id]
+          [serverProduct.updated_at || now(), item.entity_id]
         );
 
         await markQueueItemSynced(item.id);
         pushed += 1;
       } else if (item.entity_type === "product" && item.operation === "delete") {
-        const localProduct = await getProductById(item.entity_id);
-        if (localProduct?.server_id) {
-          const response = await fetch(`${API_BASE_URL}/products/${localProduct.server_id}`, {
+        const serverId = payload.server_id;
+        if (serverId) {
+          const response = await fetch(`${API_BASE_URL}/products/${serverId}`, {
             method: "DELETE",
+            headers: await getAuthHeaders(),
           });
 
           if (!response.ok) {
@@ -632,7 +637,7 @@ export async function syncQueueToServer() {
         await markQueueItemSynced(item.id);
         pushed += 1;
       } else if (item.entity_type === "sale" && item.operation === "create") {
-        const salePayload = JSON.parse(item.payload);
+        const salePayload = payload;
 
         const productRows = await db.getAllAsync(
           `SELECT id, server_id FROM products WHERE is_deleted = 0`
@@ -655,7 +660,7 @@ export async function syncQueueToServer() {
 
         const response = await fetch(`${API_BASE_URL}/sales`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             staff_user_id: staffRow?.server_id || salePayload.staff_user_id,
             items: serverItems,
@@ -665,8 +670,45 @@ export async function syncQueueToServer() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || "Sale sync failed");
 
-        await db.runAsync(`UPDATE sales SET is_synced = 1 WHERE id = ?`, [item.entity_id]);
+        await db.runAsync(
+          `UPDATE sales SET server_id = ?, is_synced = 1 WHERE id = ?`,
+          [data.sale_id || null, item.entity_id]
+        );
         await db.runAsync(`UPDATE sale_items SET is_synced = 1 WHERE sale_id = ?`, [item.entity_id]);
+        await markQueueItemSynced(item.id);
+        pushed += 1;
+      } else if (item.entity_type === "stock_movement" && item.operation === "create") {
+        const product = await getProductById(payload.product_id);
+        if (!product?.server_id) {
+          throw new Error("Stock movement product is not yet linked to server");
+        }
+
+        const userRow = payload.user_id
+          ? await db.getFirstAsync(`SELECT server_id FROM users WHERE id = ? LIMIT 1`, [
+              String(payload.user_id),
+            ])
+          : null;
+
+        const response = await fetch(`${API_BASE_URL}/activity/stock-movements`, {
+          method: "POST",
+          headers: await getAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            product_id: product.server_id,
+            user_id: userRow?.server_id || null,
+            movement_type: payload.movement_type,
+            quantity: payload.quantity,
+            note: payload.note,
+            created_at: payload.created_at,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Stock movement sync failed");
+
+        await db.runAsync(`UPDATE stock_movements SET server_id = ?, is_synced = 1 WHERE id = ?`, [
+          data.movement?.id || data.id || null,
+          item.entity_id,
+        ]);
         await markQueueItemSynced(item.id);
         pushed += 1;
       } else {
@@ -680,14 +722,29 @@ export async function syncQueueToServer() {
   let pulled = 0;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/products`);
-    const products = await response.json();
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      headers: await getAuthHeaders(),
+    });
 
-    if (response.ok && Array.isArray(products)) {
-      await pullServerProductsToLocal(products);
-      pulled = products.length;
+    const data = await response.json();
+
+    if (
+      response.ok &&
+      data.success === true &&
+      Array.isArray(data.products)
+    ) {
+      await pullServerProductsToLocal(data.products);
+
+      pulled = data.products.length;
+
+      console.log(`Pulled ${pulled} product(s) from server`);
+    } else {
+      console.log("Invalid products response shape");
     }
-  } catch (_) {}
+  } catch (error) {
+    console.log("PRODUCT PULL ERROR:");
+    console.log(error);
+  }
 
   await setLastSyncValue(now());
   return { pushed, pulled };

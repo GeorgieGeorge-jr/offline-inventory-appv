@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#6200ee"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "expo-camera",
@@ -19,7 +21,8 @@
           "cameraPermission": "Allow Offline Inventory to access your camera",
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "ios": {
       "supportsTablet": true,

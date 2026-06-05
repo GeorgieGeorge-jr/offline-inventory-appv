@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, assertApiBaseUrl, getAuthHeaders } from "../utils/api";
 
 export default function UserDetailsScreen() {
   const route = useRoute();
@@ -14,7 +14,10 @@ export default function UserDetailsScreen() {
   const loadUser = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+      assertApiBaseUrl();
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.message || "Failed to load user");
@@ -40,6 +43,7 @@ export default function UserDetailsScreen() {
           try {
             const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
               method: "DELETE",
+              headers: await getAuthHeaders(),
             });
             const data = await response.json();
 

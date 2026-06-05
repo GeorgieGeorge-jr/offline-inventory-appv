@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, assertApiBaseUrl, getAuthHeaders } from "../utils/api";
 
 export default function UsersListScreen() {
   const navigation = useNavigation();
@@ -11,7 +11,10 @@ export default function UsersListScreen() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/users`);
+      assertApiBaseUrl();
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await response.json();
       if (response.ok) setUsers(data);
     } catch (error) {

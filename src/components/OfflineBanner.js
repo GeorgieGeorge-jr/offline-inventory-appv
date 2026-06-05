@@ -37,7 +37,7 @@ export default function OfflineBanner() {
         }),
         Animated.timing(opacityAnim, {
           toValue: 1,
-          duration: 220,
+          duration: 100,
           useNativeDriver: true,
         }),
       ]).start();
@@ -50,8 +50,7 @@ export default function OfflineBanner() {
       style={[
         styles.container,
         {
-          // opacity: opacityAnim,
-          opacity: 1,
+          opacity: opacityAnim,
           transform: [{ translateY: slideAnim }],
         },
       ]}

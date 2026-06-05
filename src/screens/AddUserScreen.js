@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { API_BASE_URL } from "../utils/api";
+import { API_BASE_URL, assertApiBaseUrl, getAuthHeaders } from "../utils/api";
 
 export default function AddUserScreen() {
   const navigation = useNavigation();
@@ -20,10 +20,11 @@ export default function AddUserScreen() {
 
     try {
       setLoading(true);
+      assertApiBaseUrl();
 
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           full_name: fullName.trim(),
           username: username.trim(),

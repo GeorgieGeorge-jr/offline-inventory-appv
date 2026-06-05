@@ -1,35 +1,14 @@
--- MySQL dump 10.13  Distrib 9.6.0, for macos26.2 (arm64)
---
--- Host: localhost    Database: rims_live
--- ------------------------------------------------------
--- Server version	9.6.0
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 SET @MYSQLDUMP_TEMP_LOG_BIN = @@SESSION.SQL_LOG_BIN;
 SET @@SESSION.SQL_LOG_BIN= 0;
 
---
--- GTID state at the beginning of the backup 
---
 
 SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ 'b85a29f2-1f64-11f1-b1be-f39e3d56f9dd:1-341';
 
---
--- Table structure for table `products`
---
+
 
 DROP TABLE IF EXISTS `products`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+
 CREATE TABLE `products` (
   `id` int NOT NULL AUTO_INCREMENT,
   `product_code` varchar(50) NOT NULL,
@@ -48,25 +27,14 @@ CREATE TABLE `products` (
   UNIQUE KEY `barcode` (`barcode`),
   UNIQUE KEY `uq_products_barcode` (`barcode`)
 ) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `products`
---
 
 LOCK TABLES `products` WRITE;
-/*!40000 ALTER TABLE `products` DISABLE KEYS */;
 INSERT INTO `products` VALUES (1,'P001','Coca Cola 50cl','Drinks',0,10,500.00,'100000001','Soft drink bottle','2026-03-14 05:47:47','2026-03-17 08:56:21'),(2,'P002','Peak Milk 170g','Groceries',22,8,850.00,'100000002','Powdered milk sachet','2026-03-14 05:47:47','2026-03-17 07:06:38'),(3,'P003','Indomie Chicken','Noodles',54,15,350.00,'100000003','Instant noodles','2026-03-14 05:47:47','2026-03-24 12:34:48'),(4,'P004','Basmati Rice 1kg','Foodstuff',30,5,3200.00,'100000004','Premium rice','2026-03-14 05:47:47','2026-03-24 12:31:20'),(5,'P005','Golden Penny Spaghetti','Pasta',0,10,700.00,'100000005','Spaghetti pack','2026-03-14 05:47:47','2026-03-17 07:04:29'),(6,'P006','Munchkin','Biscuit',2,2,500.00,'1234','Sweet and savory','2026-03-15 23:19:45','2026-03-26 12:51:13'),(7,'P007','Lip gloss','Cosmetic',10,5,1000.00,'767062035745',NULL,'2026-03-16 14:14:30','2026-03-23 21:55:29'),(18,'P010','Biscuit','Snack',498,20,100.00,'123456789036',NULL,'2026-03-16 14:47:51','2026-03-24 12:22:49'),(19,'P011','Phone','devices',9,2,100000.00,'1000000001',NULL,'2026-03-16 15:07:05','2026-03-17 09:04:06'),(20,'P0001','cars','Automobile',10,1,100000.00,'exp://172.20.10.3:8081',NULL,'2026-03-17 06:38:21','2026-03-17 06:38:21'),(21,'P01011','Comb','Hair care',1,2,1500.00,'01234565',NULL,'2026-03-17 12:27:44','2026-03-23 22:15:35');
 /*!40000 ALTER TABLE `products` ENABLE KEYS */;
 UNLOCK TABLES;
 
---
--- Table structure for table `sale_items`
---
-
 DROP TABLE IF EXISTS `sale_items`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sale_items` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sale_id` int NOT NULL,
@@ -108,11 +76,7 @@ CREATE TABLE `sales` (
   KEY `staff_user_id` (`staff_user_id`),
   CONSTRAINT `sales_ibfk_1` FOREIGN KEY (`staff_user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=277 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `sales`
---
 
 LOCK TABLES `sales` WRITE;
 /*!40000 ALTER TABLE `sales` DISABLE KEYS */;
@@ -180,17 +144,7 @@ CREATE TABLE `users` (
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
 INSERT INTO `users` VALUES (1,'George ','Georgie','$2b$10$9cSTkssKKFdt3K4.zqNkMeEBZ1nQlTc4cYNBVjo.fXamuz4gcNp6K','admin',1,'2026-03-14 05:47:21'),(2,'Vanessa ','Vanessa','$2b$10$9cSTkssKKFdt3K4.zqNkMeEBZ1nQlTc4cYNBVjo.fXamuz4gcNp6K','staff',1,'2026-03-14 05:47:21'),(4,'David','davidprice10','$2b$10$Zt.FiAX8uTCsucHaKrhUGuDNT7paf2Doa6QFI471CqHxEThZBeiSm','staff',1,'2026-03-17 08:53:47'),(5,'Moyin David','Moyin','$2b$10$e68qidDPN7msh5kZ..rNI.ecFvnpoQ6qCA3sPpmu/ASQcaRmXtpAS','staff',1,'2026-03-23 21:57:24');
-/*!40000 ALTER TABLE `users` ENABLE KEYS */;
+
 UNLOCK TABLES;
 SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2026-03-29  9:14:13

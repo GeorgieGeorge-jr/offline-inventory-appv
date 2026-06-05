@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNetwork } from "./NetworkProvider";
 import { showMessage } from "react-native-flash-message";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setLastSync, fetchProducts } from "../store/inventorySlice";
 import {
   setSyncing,
@@ -14,6 +14,7 @@ import { runSyncEngine } from "./syncEngine";
 export const SyncManager = () => {
   const { isOnline } = useNetwork();
   const dispatch = useDispatch();
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
 
   const syncInProgressRef = useRef(false);
   const firstRunRef = useRef(true);
@@ -30,7 +31,7 @@ export const SyncManager = () => {
   };
 
   const syncData = async (showToast = false) => {
-    if (!isOnline) return;
+    if (!isOnline || !isAuthenticated) return;
     if (syncInProgressRef.current) return;
 
     try {
@@ -81,7 +82,7 @@ export const SyncManager = () => {
   useEffect(() => {
     refreshPending();
 
-    if (isOnline) {
+    if (isOnline && isAuthenticated) {
       syncData(!firstRunRef.current);
     }
 
@@ -90,13 +91,13 @@ export const SyncManager = () => {
     const quickInterval = setInterval(() => {
       refreshPending();
 
-      if (isOnline) {
+      if (isOnline && isAuthenticated) {
         syncData(false);
       }
     }, 10000);
 
     return () => clearInterval(quickInterval);
-  }, [isOnline]);
+  }, [isOnline, isAuthenticated]);
 
   return null;
 };
