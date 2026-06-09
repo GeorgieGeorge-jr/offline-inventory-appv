@@ -201,7 +201,12 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.topBar}>
         <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>

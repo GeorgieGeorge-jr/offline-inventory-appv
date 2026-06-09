@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-            const user = await loginUser(username.trim(), password);
+      const user = await loginUser(username.trim(), password);
       dispatch(login(user));
       dispatch(fetchProducts());
 
@@ -40,6 +40,7 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <Surface style={styles.surface}>
         <View style={styles.logoContainer}>
