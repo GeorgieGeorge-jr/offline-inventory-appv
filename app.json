@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Offline Inventory",
+    "name": "Genova",
     "slug": "offline-inventory-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6200ee"
+      "backgroundColor": "#7C3AED"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -18,7 +18,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Offline Inventory to access your camera",
+          "cameraPermission": "Allow Genova to access your camera",
           "barcodeScannerEnabled": true
         }
       ],
@@ -26,16 +26,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.offlineinventory",
+      "bundleIdentifier": "com.genova.inventory",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Offline Inventory to use the camera for barcode and QR code scanning."
+        "NSCameraUsageDescription": "Allow Genova to use the camera for barcode and QR code scanning."
       }
     },
     "android": {
-      "package": "com.offlineinventory",
+      "package": "com.genova.inventory",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#6200ee"
+        "backgroundColor": "#7C3AED"
       }
     },
     "extra": {
