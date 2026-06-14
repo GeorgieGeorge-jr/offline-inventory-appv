@@ -1,4 +1,4 @@
-package com.offlineinventory
+package com.genova.inventory
 
 import android.app.Application
 import android.content.res.Configuration

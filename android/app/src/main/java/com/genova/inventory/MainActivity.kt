@@ -1,4 +1,4 @@
-package com.offlineinventory
+package com.genova.inventory
 
 import android.os.Build
 import android.os.Bundle
